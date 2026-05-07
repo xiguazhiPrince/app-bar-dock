@@ -1,3 +1,4 @@
+/// <reference path="./renderer.d.ts" />
 import './index.css';
 
 import type { FolderItem, ScanEntry } from './shared/ipc';
@@ -58,6 +59,12 @@ function createTile(item: FolderItem): HTMLButtonElement {
 
   btn.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
+    const firstOk = window.confirm(t(currentLocale, 'confirm.remove.first', { label: item.label }));
+    if (!firstOk) return;
+    const secondOk = window.confirm(
+      t(currentLocale, 'confirm.remove.second', { label: item.label }),
+    );
+    if (!secondOk) return;
     void api.removeItem(item.id).then(renderItems);
   });
 
