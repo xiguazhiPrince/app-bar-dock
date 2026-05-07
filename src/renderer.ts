@@ -13,9 +13,9 @@ const modal = document.querySelector<HTMLElement>('#modal-overlay');
 const modalClose = document.querySelector<HTMLButtonElement>('#modal-close');
 const scanList = document.querySelector<HTMLUListElement>('#scan-list');
 const scanFilter = document.querySelector<HTMLInputElement>('#scan-filter');
-const scanAddSelected = document.querySelector<HTMLButtonElement>(
-  '#scan-add-selected',
-);
+const scanAddSelected = document.querySelector<HTMLButtonElement>('#scan-add-selected');
+const itemCountEl = document.querySelector<HTMLElement>('#item-count');
+const emptyStateEl = document.querySelector<HTMLElement>('#empty-state');
 
 const iconCache = new Map<string, string>();
 
@@ -61,10 +61,18 @@ function createTile(item: FolderItem): HTMLButtonElement {
   return btn;
 }
 
+function updateMeta(list: FolderItem[]): void {
+  if (itemCountEl) {
+    itemCountEl.textContent = `${list.length} app${list.length === 1 ? '' : 's'}`;
+  }
+  emptyStateEl?.classList.toggle('hidden', list.length > 0);
+}
+
 async function renderItems(items?: FolderItem[]): Promise<void> {
   if (!gridEl) return;
   const list = items ?? (await api.listItems());
   gridEl.replaceChildren();
+  updateMeta(list);
   for (const item of list) {
     gridEl.append(createTile(item));
   }
