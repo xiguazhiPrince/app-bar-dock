@@ -1,13 +1,68 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Hello World!</title>
-
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App folder</title>
   </head>
   <body>
-    <h1>💖 Hello World!</h1>
-    <p>Welcome to your Electron application.</p>
+    <div id="root">
+      <header class="titlebar" id="titlebar">
+        <span class="title">App folder</span>
+        <div class="titlebar-actions">
+          <button type="button" id="btn-add" class="btn ghost" title="Add apps">
+            Add
+          </button>
+          <button type="button" id="btn-scan" class="btn ghost" title="Browse system apps">
+            Scan
+          </button>
+          <button type="button" id="btn-close" class="btn icon" title="Hide">
+            ✕
+          </button>
+        </div>
+      </header>
+
+      <section class="drop-zone" id="drop-zone">
+        <div class="drop-hint">
+          Drag shortcuts or apps here, or use <strong>Add</strong> /
+          <strong>Scan</strong>
+        </div>
+        <div id="grid" class="grid" aria-live="polite"></div>
+      </section>
+
+      <footer class="hint">
+        Click an icon to launch. Right-click to remove. Click outside to hide.
+      </footer>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>System applications</h2>
+          <button type="button" id="modal-close" class="btn icon" title="Close">
+            ✕
+          </button>
+        </div>
+        <input
+          type="search"
+          id="scan-filter"
+          class="scan-filter"
+          placeholder="Filter by name…"
+          autocomplete="off"
+        />
+        <ul id="scan-list" class="scan-list"></ul>
+        <div class="modal-actions">
+          <button type="button" id="scan-add-selected" class="btn primary">
+            Add selected
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/renderer.ts"></script>
   </body>
 </html>
