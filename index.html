@@ -7,57 +7,65 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>App folder</title>
+    <title data-i18n="app.title">App folder</title>
   </head>
   <body>
     <div id="root">
       <header class="titlebar" id="titlebar">
         <div class="title-wrap">
-          <span class="title">App Folder</span>
+          <span class="title" data-i18n="title.main">App Folder</span>
           <span class="subtitle" id="item-count">0 apps</span>
         </div>
         <div class="titlebar-actions">
-          <button type="button" id="btn-add" class="btn soft" title="Add apps">Add</button>
-          <button type="button" id="btn-scan" class="btn soft" title="Browse system apps">Scan</button>
-          <button type="button" id="btn-close" class="btn icon" title="Hide">✕</button>
+          <select id="lang-select" class="lang-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="zh-CN">简体中文</option>
+          </select>
+          <button type="button" id="btn-add" class="btn soft" title="Add apps" data-i18n="action.add" data-i18n-attr-title="action.addApps">Add</button>
+          <button type="button" id="btn-scan" class="btn soft" title="Browse system apps" data-i18n="action.scan" data-i18n-attr-title="action.scanApps">Scan</button>
+          <button type="button" id="btn-close" class="btn icon" title="Hide" data-i18n-attr-title="action.hide">✕</button>
         </div>
       </header>
 
       <section class="drop-zone" id="drop-zone">
         <div class="drop-head">
           <div class="drop-hint">
-            Drag shortcuts or apps here, or use <strong>Add</strong> / <strong>Scan</strong>
+            <span data-i18n="drop.hintPrefix">Drag shortcuts or apps here, or use</span>
+            <strong data-i18n="action.add">Add</strong>
+            /
+            <strong data-i18n="action.scan">Scan</strong>
           </div>
         </div>
         <div id="empty-state" class="empty-state hidden">
-          <div class="empty-title">No apps yet</div>
-          <div class="empty-desc">Add from file picker, scan system apps, or drag files into this panel.</div>
+          <div class="empty-title" data-i18n="empty.title">No apps yet</div>
+          <div class="empty-desc" data-i18n="empty.desc">Add from file picker, scan system apps, or drag files into this panel.</div>
         </div>
         <div id="grid" class="grid" aria-live="polite"></div>
       </section>
 
-      <footer class="hint">Click to launch · Right-click to remove · Click outside to hide</footer>
+      <footer class="hint" data-i18n="hint.footer">Click to launch · Right-click to remove · Click outside to hide</footer>
     </div>
 
     <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
       <div class="modal">
         <div class="modal-header">
           <div>
-            <h2>System Applications</h2>
-            <p class="modal-subtitle">Select items you want to add</p>
+            <h2 data-i18n="scan.title">System Applications</h2>
+            <p class="modal-subtitle" data-i18n="scan.subtitle">Select items you want to add</p>
           </div>
-          <button type="button" id="modal-close" class="btn icon" title="Close">✕</button>
+          <button type="button" id="modal-close" class="btn icon" title="Close" data-i18n-attr-title="action.close">✕</button>
         </div>
         <input
           type="search"
           id="scan-filter"
           class="scan-filter"
           placeholder="Filter by name..."
+          data-i18n-attr-placeholder="scan.filterPlaceholder"
           autocomplete="off"
         />
         <ul id="scan-list" class="scan-list"></ul>
         <div class="modal-actions">
-          <button type="button" id="scan-add-selected" class="btn primary">Add selected</button>
+          <button type="button" id="scan-add-selected" class="btn primary" data-i18n="scan.addSelected">Add selected</button>
         </div>
       </div>
     </div>

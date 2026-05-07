@@ -64,6 +64,17 @@ body {
   -webkit-app-region: no-drag;
 }
 
+.lang-select {
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
 .btn {
   border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -205,6 +216,7 @@ body {
   max-width: 100%;
   overflow: hidden;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }

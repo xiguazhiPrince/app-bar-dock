@@ -1,6 +1,7 @@
 import './index.css';
 
 import type { FolderItem, ScanEntry } from './shared/ipc';
+import { applyTranslations, getInitialLocale, setLocale, t, type Locale } from './i18n';
 
 const api = window.appFolder;
 
@@ -9,6 +10,7 @@ const dropZone = document.querySelector<HTMLElement>('#drop-zone');
 const btnAdd = document.querySelector<HTMLButtonElement>('#btn-add');
 const btnScan = document.querySelector<HTMLButtonElement>('#btn-scan');
 const btnClose = document.querySelector<HTMLButtonElement>('#btn-close');
+const langSelect = document.querySelector<HTMLSelectElement>('#lang-select');
 const modal = document.querySelector<HTMLElement>('#modal-overlay');
 const modalClose = document.querySelector<HTMLButtonElement>('#modal-close');
 const scanList = document.querySelector<HTMLUListElement>('#scan-list');
@@ -18,6 +20,7 @@ const itemCountEl = document.querySelector<HTMLElement>('#item-count');
 const emptyStateEl = document.querySelector<HTMLElement>('#empty-state');
 
 const iconCache = new Map<string, string>();
+let currentLocale: Locale = getInitialLocale();
 
 async function loadIcon(pathStr: string): Promise<string | null> {
   const hit = iconCache.get(pathStr);
@@ -63,7 +66,8 @@ function createTile(item: FolderItem): HTMLButtonElement {
 
 function updateMeta(list: FolderItem[]): void {
   if (itemCountEl) {
-    itemCountEl.textContent = `${list.length} app${list.length === 1 ? '' : 's'}`;
+    const key = list.length === 1 ? 'meta.appCount' : 'meta.appCountPlural';
+    itemCountEl.textContent = t(currentLocale, key, { count: list.length });
   }
   emptyStateEl?.classList.toggle('hidden', list.length > 0);
 }
@@ -142,6 +146,14 @@ scanAddSelected?.addEventListener('click', async () => {
   closeModal();
 });
 
+langSelect?.addEventListener('change', () => {
+  const locale = (langSelect.value === 'zh-CN' ? 'zh-CN' : 'en') as Locale;
+  currentLocale = locale;
+  setLocale(locale);
+  applyTranslations(locale);
+  void renderItems();
+});
+
 btnClose?.addEventListener('click', () => {
   void api.hideWindow();
 });
@@ -175,4 +187,6 @@ dropZone?.addEventListener('drop', async (e) => {
   if (paths.length) await renderItems(await api.addPaths(paths));
 });
 
+applyTranslations(currentLocale);
+if (langSelect) langSelect.value = currentLocale;
 void renderItems();
