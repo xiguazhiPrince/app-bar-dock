@@ -5,6 +5,7 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "private": true,
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
