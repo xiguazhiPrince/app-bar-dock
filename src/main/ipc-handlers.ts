@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, BrowserWindow } from 'electron';
+import { app, dialog, ipcMain, BrowserWindow, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -22,6 +22,22 @@ async function pathExists(p: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function resolveIconPath(targetPath: string): Promise<string> {
+  if (process.platform !== 'win32') return targetPath;
+  if (path.extname(targetPath).toLowerCase() !== '.lnk') return targetPath;
+
+  try {
+    const info = shell.readShortcutLink(targetPath);
+    const resolved = info.target ? path.normalize(info.target) : '';
+    if (resolved && (await pathExists(resolved))) {
+      return resolved;
+    }
+  } catch {
+    // Fall back to the original shortcut path when parsing fails.
+  }
+  return targetPath;
 }
 
 export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void {
@@ -82,7 +98,8 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
       if (typeof targetPath !== 'string') return null;
       if (!(await pathExists(targetPath))) return null;
       try {
-        const img = await app.getFileIcon(targetPath, { size: 'large' });
+        const iconPath = await resolveIconPath(targetPath);
+        const img = await app.getFileIcon(iconPath, { size: 'large' });
         if (img.isEmpty()) return null;
         const png = img.toPNG();
         return `data:image/png;base64,${png.toString('base64')}`;
