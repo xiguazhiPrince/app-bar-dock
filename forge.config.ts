@@ -7,9 +7,32 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
+function shouldKeepPackagedFile(file: string): boolean {
+  // Forge's Vite plugin normally keeps only `/.vite`. koffi is a native
+  // module and must ship beside the bundle so `require('koffi')` can resolve.
+  if (file.startsWith('/.vite')) return true;
+  if (file === '/node_modules') return true;
+  if (file === '/node_modules/koffi' || file.startsWith('/node_modules/koffi/')) {
+    return true;
+  }
+  if (
+    file === '/node_modules/@koromix' ||
+    file.startsWith('/node_modules/@koromix/')
+  ) {
+    return true;
+  }
+  return false;
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.node',
+    },
+    ignore: (file: string) => {
+      if (!file) return false;
+      return !shouldKeepPackagedFile(file);
+    },
   },
   rebuildConfig: {},
   makers: [

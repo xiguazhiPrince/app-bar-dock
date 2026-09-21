@@ -271,6 +271,18 @@ body {
   height: 42px;
   object-fit: contain;
   pointer-events: none;
+  flex-shrink: 0;
+}
+
+.tile-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 650;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .tile-label {

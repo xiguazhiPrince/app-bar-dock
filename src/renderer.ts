@@ -1,4 +1,4 @@
-/// <reference path="./renderer.d.ts" />
+import type {} from './renderer.d.ts';
 import './index.css';
 
 import type { FolderItem, ScanEntry } from './shared/ipc';
@@ -31,6 +31,26 @@ async function loadIcon(pathStr: string): Promise<string | null> {
   return url;
 }
 
+function fallbackGlyph(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return '?';
+  const first = [...trimmed][0] ?? '?';
+  if (/^[a-zA-Z]$/.test(first)) return first.toUpperCase();
+  return first;
+}
+
+function fallbackHue(label: string): number {
+  return [...label].reduce((h, c) => (h * 31 + (c.codePointAt(0) ?? 0)) % 360, 7);
+}
+
+function createFallbackIcon(label: string): HTMLSpanElement {
+  const el = document.createElement('span');
+  el.className = 'tile-icon tile-icon-fallback';
+  el.textContent = fallbackGlyph(label);
+  el.style.background = `hsl(${fallbackHue(label)} 55% 52%)`;
+  return el;
+}
+
 function createTile(item: FolderItem): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -44,7 +64,11 @@ function createTile(item: FolderItem): HTMLButtonElement {
   img.className = 'tile-icon';
   img.loading = 'lazy';
   void loadIcon(item.path).then((url) => {
-    if (url) img.src = url;
+    if (url) {
+      img.src = url;
+    } else {
+      img.replaceWith(createFallbackIcon(item.label));
+    }
   });
 
   const label = document.createElement('span');
