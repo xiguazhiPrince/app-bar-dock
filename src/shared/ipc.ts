@@ -6,6 +6,8 @@ export interface FolderItem {
   kind: ItemKind;
   path: string;
   addedAt: number;
+  /** How many times this item has been launched; drives the dock ordering. */
+  launchCount: number;
 }
 
 export interface ScanEntry {

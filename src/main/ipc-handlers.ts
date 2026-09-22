@@ -4,7 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { FolderItem } from '../shared/ipc';
 import { IPC } from '../shared/ipc';
-import { loadItems, saveItems } from './store';
+import { loadItems, recordLaunch, saveItems, sortItems } from './store';
 import { inferKind, inferLabel } from './item-kind';
 import { launchTarget } from './launch';
 import { scanSystemApplications } from './scanners';
@@ -27,14 +27,14 @@ async function pathExists(p: string): Promise<boolean> {
 
 export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.ITEMS_LIST, async (): Promise<FolderItem[]> => {
-    return loadItems(storeRoot());
+    return sortItems(await loadItems(storeRoot()));
   });
 
   ipcMain.handle(
     IPC.ITEMS_ADD_PATHS,
     async (_evt, rawPaths: unknown): Promise<FolderItem[]> => {
       if (!Array.isArray(rawPaths) || !rawPaths.every((x) => typeof x === 'string')) {
-        return loadItems(storeRoot());
+        return sortItems(await loadItems(storeRoot()));
       }
       const paths = rawPaths as string[];
       const items = await loadItems(storeRoot());
@@ -51,21 +51,22 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
           kind: inferKind(normalized),
           path: normalized,
           addedAt: Date.now(),
+          launchCount: 0,
         });
       }
 
       await saveItems(storeRoot(), items);
-      return items;
+      return sortItems(items);
     },
   );
 
   ipcMain.handle(
     IPC.ITEMS_REMOVE,
     async (_evt, id: unknown): Promise<FolderItem[]> => {
-      if (typeof id !== 'string') return loadItems(storeRoot());
+      if (typeof id !== 'string') return sortItems(await loadItems(storeRoot()));
       const items = (await loadItems(storeRoot())).filter((i) => i.id !== id);
       await saveItems(storeRoot(), items);
-      return items;
+      return sortItems(items);
     },
   );
 
@@ -74,6 +75,14 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     const err = await launchTarget(targetPath);
     if (err && typeof err === 'string') {
       console.error('Launch failed:', err);
+      return;
+    }
+    try {
+      await recordLaunch(storeRoot(), targetPath);
+    } catch (e) {
+      // A failed bookkeeping write must not turn a successful launch into a
+      // rejected IPC call in the renderer.
+      console.error('Failed to record launch:', e);
     }
   });
 

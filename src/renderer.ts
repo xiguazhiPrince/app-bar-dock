@@ -219,6 +219,14 @@ dropZone?.addEventListener('drop', async (e) => {
   if (paths.length) await renderItems(await api.addPaths(paths));
 });
 
+// The dock window is hidden and re-shown rather than reloaded, and the main
+// process pushes nothing to the renderer. So refresh the order every time the
+// window comes back to the front: reordering then only happens while the dock
+// is hidden, never under the cursor mid-click.
+window.addEventListener('focus', () => {
+  void renderItems();
+});
+
 applyTranslations(currentLocale);
 if (langSelect) langSelect.value = currentLocale;
 void renderItems();
