@@ -1,15 +1,36 @@
-import { nativeImage } from 'electron';
 import koffi from 'koffi';
 import type { TypeObject } from 'koffi';
 
 const SHGFI_ICON = 0x00000100;
 const SHGFI_LARGEICON = 0x00000000;
 const SHGFI_SYSICONINDEX = 0x00004000;
+const SHGFI_USEFILEATTRIBUTES = 0x00000010;
+const FILE_ATTRIBUTE_NORMAL = 0x80;
 const SHIL_EXTRALARGE = 2;
 const SHIL_JUMBO = 4;
 const ILD_TRANSPARENT = 0x00000001;
 const DIB_RGB_COLORS = 0;
 const BI_RGB = 0;
+const COINIT_APARTMENTTHREADED = 0x2;
+
+/**
+ * Straight (not premultiplied) BGRA pixels, top-down and tightly packed.
+ * `nativeImage.createFromBitmap` consumes exactly this layout.
+ */
+export interface IconBitmap {
+  data: Buffer;
+  width: number;
+  height: number;
+}
+
+export interface ShellIconOptions {
+  /**
+   * Resolve from the extension alone (SHGFI_USEFILEATTRIBUTES) instead of
+   * reading the file, so a path that does not exist still yields the icon its
+   * extension maps to.
+   */
+  useFileAttributes?: boolean;
+}
 
 type Handle = unknown;
 // koffi bindings are untyped at the call boundary.
@@ -24,6 +45,7 @@ interface WinApis {
   BITMAP: TypeObject;
   ICONINFO: TypeObject;
   BITMAPINFOHEADER: TypeObject;
+  CoInitializeEx: NativeFn;
   SHGetFileInfoW: NativeFn;
   SHGetImageList: NativeFn;
   ImageList_GetIcon: NativeFn;
@@ -38,6 +60,7 @@ interface WinApis {
 }
 
 let apis: WinApis | null | undefined;
+let comChecked = false;
 
 function loadApis(): WinApis | null {
   if (apis !== undefined) return apis;
@@ -51,6 +74,7 @@ function loadApis(): WinApis | null {
     const user32 = koffi.load('user32.dll');
     const gdi32 = koffi.load('gdi32.dll');
     const comctl32 = koffi.load('comctl32.dll');
+    const ole32 = koffi.load('ole32.dll');
 
     const SHFILEINFOW = koffi.struct('SHFILEINFOW', {
       hIcon: 'void *',
@@ -103,6 +127,7 @@ function loadApis(): WinApis | null {
       BITMAP,
       ICONINFO,
       BITMAPINFOHEADER,
+      CoInitializeEx: ole32.func('int32 __stdcall CoInitializeEx(void *pvReserved, uint32 dwCoInit)'),
       SHGetFileInfoW: shell32.func(
         'uintptr __stdcall SHGetFileInfoW(str16 pszPath, uint32 attr, _Inout_ SHFILEINFOW *psfi, uint32 cb, uint32 flags)',
       ),
@@ -135,6 +160,24 @@ function loadApis(): WinApis | null {
   }
 }
 
+/**
+ * `SHGetFileInfoW` and `SHGetImageList` need an initialized COM apartment on the
+ * calling thread. Electron's main thread already is one (Chromium sets it up as
+ * an STA) but a bare `worker_threads` worker is not, so initialize explicitly.
+ * The apartment goes away with the thread, so there is no CoUninitialize to pair
+ * with this - and calling one on Electron's main thread would be wrong.
+ */
+function ensureCom(api: WinApis): void {
+  if (comChecked) return;
+  comChecked = true;
+  try {
+    api.CoInitializeEx(null, COINIT_APARTMENTTHREADED);
+  } catch {
+    // Already initialized, or COM unavailable: the shell calls below then
+    // degrade to the plain SHGFI_ICON result.
+  }
+}
+
 function releaseCom(ptr: Handle): void {
   if (!ptr) return;
   try {
@@ -147,15 +190,27 @@ function releaseCom(ptr: Handle): void {
   }
 }
 
-function getJumboIcon(api: WinApis, iIcon: number, list: number): Handle | null {
+/**
+ * Pull the icon at `iIcon` out of a shell image list and read its pixels.
+ *
+ * The pixels are read *while the list is still alive*: `ImageList_GetIcon` can
+ * hand back an icon that borrows the list's own bitmap, and releasing the list
+ * first silently degrades some jumbo icons to a much smaller image.
+ */
+function iconFromList(api: WinApis, iIcon: number, list: number): IconBitmap | null {
   const holder = [null] as Array<Handle | null>;
   const hr = api.SHGetImageList(list, api.iidIImageList, holder) as number;
   if (hr < 0 || !holder[0]) return null;
   const himl = holder[0];
+  let hIcon: Handle | null = null;
   try {
-    const hIcon = api.ImageList_GetIcon(himl, iIcon, ILD_TRANSPARENT) as Handle;
-    return hIcon || null;
+    hIcon = api.ImageList_GetIcon(himl, iIcon, ILD_TRANSPARENT) as Handle;
+    if (!hIcon) return null;
+    return hIconToBitmap(api, hIcon);
+  } catch {
+    return null;
   } finally {
+    if (hIcon) api.DestroyIcon(hIcon);
     releaseCom(himl);
   }
 }
@@ -221,7 +276,7 @@ function cropTransparent(bgra: Buffer, width: number, height: number): {
   return { data: out, width: cw, height: ch };
 }
 
-function hIconToPng(api: WinApis, hIcon: Handle): Buffer | null {
+function hIconToBitmap(api: WinApis, hIcon: Handle): IconBitmap | null {
   const info = {
     fIcon: 0,
     xHotspot: 0,
@@ -251,6 +306,7 @@ function hIconToPng(api: WinApis, hIcon: Handle): Buffer | null {
         break;
       }
     }
+    // Legacy icons carry no alpha channel; their transparency lives in the mask.
     if (!hasAlpha && info.hbmMask) {
       const mask = readBitmap32(api, hdc, info.hbmMask, width, height);
       if (mask) {
@@ -262,14 +318,7 @@ function hIconToPng(api: WinApis, hIcon: Handle): Buffer | null {
       }
     }
 
-    const cropped = cropTransparent(color, width, height);
-    const img = nativeImage.createFromBitmap(cropped.data, {
-      width: cropped.width,
-      height: cropped.height,
-    });
-    if (img.isEmpty()) return null;
-    const png = img.toPNG();
-    return png.length ? png : null;
+    return cropTransparent(color, width, height);
   } finally {
     if (hdc) api.ReleaseDC(null, hdc);
     if (info.hbmColor) api.DeleteObject(info.hbmColor);
@@ -277,47 +326,54 @@ function hIconToPng(api: WinApis, hIcon: Handle): Buffer | null {
   }
 }
 
-function pickIcon(api: WinApis, iIcon: number, fallback: Handle | null): Handle | null {
-  const jumbo = getJumboIcon(api, iIcon, SHIL_JUMBO);
-  if (jumbo) return jumbo;
-  const extra = getJumboIcon(api, iIcon, SHIL_EXTRALARGE);
-  if (extra) return extra;
-  return fallback;
-}
-
 /**
- * Extract the shell-associated icon for a file (including .lnk) via SHGetFileInfo.
- * Returns PNG bytes, or null when the Win32 path is unavailable.
+ * Extract the shell-associated icon for a file (including .lnk) via SHGetFileInfo,
+ * preferring the 256px jumbo image-list entry. Returns plain BGRA pixels, or null
+ * when the Win32 path is unavailable. Safe to call from any thread.
+ *
+ * With `useFileAttributes` the shell answers from the path's extension alone,
+ * exactly as it does for a file it cannot open - which is how the placeholder
+ * icon an extension falls back to can be fingerprinted at the same resolution.
  */
-export function extractWinShellIconPng(filePath: string): Buffer | null {
+export function extractWinShellIconBitmap(
+  filePath: string,
+  options: ShellIconOptions = {},
+): IconBitmap | null {
   if (process.platform !== 'win32') return null;
   const api = loadApis();
   if (!api) return null;
+  ensureCom(api);
 
-  let chosen: Handle | null = null;
-  let fallback: Handle | null = null;
+  const probe = options.useFileAttributes === true;
+  const flags =
+    SHGFI_ICON | SHGFI_LARGEICON | SHGFI_SYSICONINDEX | (probe ? SHGFI_USEFILEATTRIBUTES : 0);
+  const attributes = probe ? FILE_ATTRIBUTE_NORMAL : 0;
+
+  let fromShell: Handle | null = null;
   try {
     const sfiBuf = koffi.alloc(api.SHFILEINFOW, 1);
     const ok = api.SHGetFileInfoW(
       filePath,
-      0,
+      attributes,
       sfiBuf,
       api.sizeofShfi,
-      SHGFI_ICON | SHGFI_LARGEICON | SHGFI_SYSICONINDEX,
+      flags,
     ) as number | bigint;
     if (!ok) return null;
 
     const sfi = koffi.decode(sfiBuf, api.SHFILEINFOW) as { hIcon: Handle; iIcon: number };
-    fallback = sfi.hIcon;
-    chosen = pickIcon(api, sfi.iIcon, fallback);
-    if (!chosen) return null;
-    if (fallback && chosen !== fallback) api.DestroyIcon(fallback);
-    fallback = null;
-    return hIconToPng(api, chosen);
+    fromShell = sfi.hIcon;
+
+    const jumbo = iconFromList(api, sfi.iIcon, SHIL_JUMBO);
+    if (jumbo) return jumbo;
+    const extra = iconFromList(api, sfi.iIcon, SHIL_EXTRALARGE);
+    if (extra) return extra;
+
+    // Last resort: the plain SHGFI_ICON handle, which is only the 32px large icon.
+    return fromShell ? hIconToBitmap(api, fromShell) : null;
   } catch {
     return null;
   } finally {
-    if (chosen) api.DestroyIcon(chosen);
-    else if (fallback) api.DestroyIcon(fallback);
+    if (fromShell) api.DestroyIcon(fromShell);
   }
 }

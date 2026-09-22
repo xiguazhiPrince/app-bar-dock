@@ -10,6 +10,15 @@ export interface FileIdentity {
   size: number;
 }
 
+/**
+ * Bump to invalidate every entry on disk.
+ *
+ * 2 - entries written before placeholder rejection existed may hold the
+ *     extension's generic icon, which would otherwise be served from cache
+ *     forever and permanently mask the fix.
+ */
+const CACHE_VERSION = 2;
+
 interface CacheEntry {
   file: string;
   targetPath: string;
@@ -18,7 +27,10 @@ interface CacheEntry {
   source: IconSource;
 }
 
-type CacheIndex = Record<string, CacheEntry>;
+interface CacheIndex {
+  version: number;
+  entries: Record<string, CacheEntry>;
+}
 
 function cacheDir(): string {
   return path.join(app.getPath('userData'), 'icon-cache');
@@ -32,6 +44,10 @@ function fileNameFor(itemPath: string): string {
   return `${createHash('sha1').update(itemPath).digest('hex')}.png`;
 }
 
+function emptyIndex(): CacheIndex {
+  return { version: CACHE_VERSION, entries: {} };
+}
+
 let index: CacheIndex | null = null;
 let indexLoad: Promise<CacheIndex> | null = null;
 
@@ -41,15 +57,18 @@ async function loadIndex(): Promise<CacheIndex> {
   indexLoad = (async () => {
     try {
       const raw = await fs.readFile(indexPath(), 'utf-8');
-      const data = JSON.parse(raw) as unknown;
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        index = {};
+      const data = JSON.parse(raw) as Partial<CacheIndex> | null;
+      // Anything else - a pre-versioning index, a truncated file, a hand-edited
+      // one - is discarded rather than migrated. The PNGs are left in place;
+      // entries written from here on reuse the same file names.
+      if (!data || data.version !== CACHE_VERSION || typeof data.entries !== 'object') {
+        index = emptyIndex();
         return index;
       }
-      index = data as CacheIndex;
+      index = { version: CACHE_VERSION, entries: data.entries ?? {} };
       return index;
     } catch {
-      index = {};
+      index = emptyIndex();
       return index;
     }
   })();
@@ -58,7 +77,7 @@ async function loadIndex(): Promise<CacheIndex> {
 
 async function saveIndex(): Promise<void> {
   await fs.mkdir(cacheDir(), { recursive: true });
-  await fs.writeFile(indexPath(), JSON.stringify(index ?? {}, null, 2), 'utf-8');
+  await fs.writeFile(indexPath(), JSON.stringify(index ?? emptyIndex(), null, 2), 'utf-8');
 }
 
 export async function readCachedIcon(
@@ -67,7 +86,7 @@ export async function readCachedIcon(
   identity: FileIdentity,
 ): Promise<Buffer | null> {
   const idx = await loadIndex();
-  const entry = idx[itemPath];
+  const entry = idx.entries[itemPath];
   if (!entry) return null;
   if (entry.targetPath !== targetPath) return null;
   if (entry.mtimeMs !== identity.mtimeMs || entry.size !== identity.size) return null;
@@ -90,7 +109,7 @@ export async function writeCachedIcon(
   const file = fileNameFor(itemPath);
   await fs.writeFile(path.join(dir, file), png);
   const idx = await loadIndex();
-  idx[itemPath] = {
+  idx.entries[itemPath] = {
     file,
     targetPath,
     mtimeMs: identity.mtimeMs,

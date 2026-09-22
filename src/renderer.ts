@@ -20,14 +20,15 @@ const scanAddSelected = document.querySelector<HTMLButtonElement>('#scan-add-sel
 const itemCountEl = document.querySelector<HTMLElement>('#item-count');
 const emptyStateEl = document.querySelector<HTMLElement>('#empty-state');
 
-const iconCache = new Map<string, string>();
+const iconCache = new Map<string, string | null>();
 let currentLocale: Locale = getInitialLocale();
 
 async function loadIcon(pathStr: string): Promise<string | null> {
-  const hit = iconCache.get(pathStr);
-  if (hit) return hit;
+  // Misses are cached too: re-rendering the grid must not re-run the whole
+  // extraction chain for every app that has no icon to give.
+  if (iconCache.has(pathStr)) return iconCache.get(pathStr) ?? null;
   const url = await api.getFileIconDataUrl(pathStr);
-  if (url) iconCache.set(pathStr, url);
+  iconCache.set(pathStr, url);
   return url;
 }
 
