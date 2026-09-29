@@ -7,6 +7,17 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import path from 'node:path';
+
+/**
+ * Icon sources under assets/, regenerated from the artwork PNG with
+ * `python tools/build-icons.py`. These are build-time inputs - packager reads
+ * them from the source tree - so they are not part of the packaged app, and
+ * `shouldKeepPackagedFile` deliberately excludes them.
+ */
+const ICON_PNG = path.resolve(__dirname, 'assets/icon-512.png');
+const ICON_ICNS = path.resolve(__dirname, 'assets/icon.icns');
+const ICON_ICO = path.resolve(__dirname, 'assets/icon.ico');
 
 /**
  * Setting `packagerConfig.ignore` makes the Vite plugin skip installing its own
@@ -32,6 +43,10 @@ function shouldKeepPackagedFile(file: string): boolean {
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // Drives the .exe icon on Windows, the bundle icon on macOS, and the
+    // installed launcher icon on Linux. Without it, packaged builds ship the
+    // stock Electron icon.
+    icon: process.platform === 'darwin' ? ICON_ICNS : ICON_ICO,
     // `AutoUnpackNativesPlugin` adds the `**/*.node` unpack pattern, which is
     // what lifts koffi's binary out of the archive. The icon worker needs no
     // such treatment: Electron loads worker_threads scripts through the asar
@@ -44,10 +59,12 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    // `setupIcon` brands the installer itself; `packagerConfig.icon` only
+    // brands the app it installs.
+    new MakerSquirrel({ setupIcon: ICON_ICO }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerRpm({ options: { icon: ICON_PNG } }),
+    new MakerDeb({ options: { icon: ICON_PNG } }),
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
