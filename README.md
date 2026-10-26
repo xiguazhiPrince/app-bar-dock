@@ -7,6 +7,12 @@ Electron + TypeScript + Vite，支持 macOS / Windows / Linux。
 [![Release](https://github.com/xiguazhiPrince/app-bar-dock/actions/workflows/release.yml/badge.svg)](https://github.com/xiguazhiPrince/app-bar-dock/actions/workflows/release.yml)
 [![Latest release](https://img.shields.io/github/v/release/xiguazhiPrince/app-bar-dock?label=download)](https://github.com/xiguazhiPrince/app-bar-dock/releases/latest)
 
+## 最佳使用方法
+
+1. 把这个图标添加到任务栏里（macOS 上是 Dock）；
+2. 把其他应用的图标从任务栏里移除；
+3. 以后想打开什么程序，直接点击这个图标就可以打开了。
+
 ![AppBarDock 主界面](docs/preview-app.png)
 
 ## 功能
