@@ -62,7 +62,9 @@ const config: ForgeConfig = {
     // `setupIcon` brands the installer itself; `packagerConfig.icon` only
     // brands the app it installs.
     new MakerSquirrel({ setupIcon: ICON_ICO }),
-    new MakerZIP({}, ['darwin']),
+    // ZIP doubles as the "portable" build on Windows: it wraps the packaged
+    // directory, so unzipping and running the .exe needs no installer.
+    new MakerZIP({}, ['darwin', 'win32']),
     new MakerRpm({ options: { icon: ICON_PNG } }),
     new MakerDeb({ options: { icon: ICON_PNG } }),
   ],
