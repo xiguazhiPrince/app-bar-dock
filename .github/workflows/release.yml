@@ -38,6 +38,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # pnpm does not run dependency install scripts unless they are allow-listed
+      # (see "pnpm.onlyBuiltDependencies" in package.json). electron-winstaller
+      # unpacks its vendor Squirrel/7z binaries in exactly such a script; if it
+      # is skipped, `make` later dies with a cryptic "cannot find the file
+      # specified". Catch it here, and self-heal by forcing the script.
+      - name: Verify Squirrel vendor binaries
+        shell: bash
+        run: |
+          vendor="node_modules/electron-winstaller/vendor/7z.exe"
+          if [ ! -f "$vendor" ]; then
+            echo "::warning::7z.exe missing, re-running electron-winstaller install script"
+            pnpm rebuild electron-winstaller
+          fi
+          ls -la node_modules/electron-winstaller/vendor || true
+          if [ ! -f "$vendor" ]; then
+            echo "::error::electron-winstaller vendor binaries are missing (7z.exe)"
+            exit 1
+          fi
+
       # Artifact names and the in-app version should match the release tag, so
       # the tag is the single source of truth for a release build.
       - name: Align version with tag
