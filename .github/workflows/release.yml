@@ -91,8 +91,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          find out/make -type f \
-            \( -name '*.exe' -o -name '*.nupkg' -o -name '*.zip' -o -name 'RELEASES' \) \
+          # Ship only what end users download: the Squirrel installer and the
+          # portable zip. Squirrel's Setup.exe already embeds the full .nupkg,
+          # nothing in the app does Squirrel auto-update, so the standalone
+          # .nupkg plus the RELEASES manifest would only duplicate ~140 MB in
+          # every artifact and release.
+          find out/make -type f \( -name '*.exe' -o -name '*.zip' \) \
             -exec cp {} dist/ \;
           ls -la dist
           if ! ls dist/*.exe >/dev/null 2>&1; then
