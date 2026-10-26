@@ -48,8 +48,25 @@ jobs:
           npm pkg set version="$version"
           echo "building version $version"
 
+      # Tee the build output so a failure can be surfaced as a check-run
+      # annotation - workflow logs need repository admin rights to download,
+      # annotations are readable from the public API.
       - name: Build
-        run: pnpm make
+        shell: bash
+        run: |
+          set -o pipefail
+          DEBUG=electron-forge:* pnpm make 2>&1 | tee make.log
+
+      - name: Surface build errors
+        if: failure()
+        shell: bash
+        run: |
+          echo "### Build log tail" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 120 make.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          body=$(tail -n 40 make.log | tr -d '\r' | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')
+          echo "::error::${body}"
 
       - name: Collect artifacts
         shell: bash
