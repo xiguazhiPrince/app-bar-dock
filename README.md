@@ -13,7 +13,7 @@ Electron + TypeScript + Vite，支持 macOS / Windows / Linux。
 2. 把其他应用的图标从任务栏里移除；
 3. 以后想打开什么程序，直接点击这个图标就可以打开了。
 
-![AppBarDock 主界面](docs/preview-app.png)
+![在桌面上使用](docs/preview-desktop.png)
 
 ## 功能
 
@@ -30,16 +30,19 @@ Electron + TypeScript + Vite，支持 macOS / Windows / Linux。
 
 <table>
 <tr>
+<td width="50%"><img src="docs/preview-app.png" alt="主界面"></td>
 <td width="50%"><img src="docs/preview-app-zh.png" alt="中文界面"></td>
-<td width="50%"><img src="docs/preview-scan.png" alt="扫描系统应用"></td>
 </tr>
 <tr>
+<td align="center">主界面（English）</td>
 <td align="center">简体中文</td>
-<td align="center">扫描系统应用</td>
 </tr>
 </table>
 
-![桌面场景](docs/preview-desktop.png)
+<p align="center">
+<img src="docs/preview-scan.png" width="46%" alt="扫描系统应用"><br>
+扫描系统应用
+</p>
 
 > 预览图为按项目真实样式（`src/index.css` + `index.html`）渲染的效果图，图标取自真实应用，非运行截图。
 
