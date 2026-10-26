@@ -24,11 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # No `version` input on purpose: the action reads "packageManager" from
+      # package.json, and passing both is a hard error (multiple versions).
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          # Must stay on the same major as "packageManager" in package.json.
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
